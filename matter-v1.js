@@ -10,7 +10,7 @@
 
 /* ---------- Konfiguration ---------- */
 const THICCNESS = 120;
-const TOP_WALL_OFFSET = 0;
+const TOP_WALL_OFFSET = 660;
 const SVG_PATH_SELECTOR = "#matter-path";
 const SVG_WIDTH_IN_PX = 500;
 const SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH = 0.30;
@@ -26,7 +26,7 @@ const PHYSICS = {
 };
 
 const BODY_DEFAULTS = { restitution:0.35, friction:0.3, frictionStatic:0.5, frictionAir:0.0012, density:0.001 };
-const SVG_OPTS = { sample:4, simplifyTolerance:10 };
+const SVG_OPTS = { sample:8, simplifyTolerance:4.2 };
 
 const LAYOUT = { marginPct:0.07, startYRatio:0.12, kickLinear:0.35, kickAngular:0.02 };
 const RESPONSIVE_SIZE = [
