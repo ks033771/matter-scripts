@@ -11,7 +11,7 @@
 
 /* ---------- Konfiguration ---------- */
 const THICCNESS = 120;
-const TOP_WALL_OFFSET = 200;
+const TOP_WALL_OFFSET = 400;
 const SVG_PATH_SELECTOR = "#matter-path";
 const SVG_WIDTH_IN_PX = 500;
 const SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH = 0.30;
