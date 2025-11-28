@@ -1,5 +1,6 @@
 
 
+
 /* ==========================================================
    Matter.js + Canvas-Renderer (optimiert)
    - Kein Matter.Render, eigener RAF-Loop (semi-fixed timestep)
@@ -10,7 +11,7 @@
 
 /* ---------- Konfiguration ---------- */
 const THICCNESS = 120;
-const TOP_WALL_OFFSET = 0;
+const TOP_WALL_OFFSET = 660;
 const SVG_PATH_SELECTOR = "#matter-path";
 const SVG_WIDTH_IN_PX = 500;
 const SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH = 0.30;
