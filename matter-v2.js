@@ -11,7 +11,7 @@
 
 /* ---------- Konfiguration ---------- */
 const THICCNESS = 120;
-const TOP_WALL_OFFSET = 0;
+const TOP_WALL_OFFSET = 200;
 const SVG_PATH_SELECTOR = "#matter-path";
 const SVG_WIDTH_IN_PX = 500;
 const SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH = 0.30;
@@ -233,7 +233,7 @@ function layoutInstancesEvenly(list) {
   const margin = Math.max(24, W * LAYOUT.marginPct);
   for (let i=0;i<n;i++){
     const x = margin + ((W - 2*margin) * (i + 0.5)) / n;
-        const y = -80 - (Math.random() * 80); // Start 200â€“400px Ã¼ber dem Viewport
+        const y = -40 - (Math.random() * 40); // Start 200â€“400px Ã¼ber dem Viewport
     Body.setPosition(list[i].body, { x, y });
     Body.setVelocity(list[i].body, { x:(Math.random()-0.5)*LAYOUT.kickLinear, y:0 });
     Body.setAngularVelocity(list[i].body, (Math.random()-0.5)*LAYOUT.kickAngular);
