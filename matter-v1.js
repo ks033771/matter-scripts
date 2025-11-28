@@ -26,7 +26,7 @@ const PHYSICS = {
 };
 
 const BODY_DEFAULTS = { restitution:0.35, friction:0.3, frictionStatic:0.5, frictionAir:0.0012, density:0.001 };
-const SVG_OPTS = { sample:8, simplifyTolerance:4.2 };
+const SVG_OPTS = { sample:4, simplifyTolerance:20 };
 
 const LAYOUT = { marginPct:0.07, startYRatio:0.12, kickLinear:0.35, kickAngular:0.02 };
 const RESPONSIVE_SIZE = [
