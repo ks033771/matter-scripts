@@ -418,21 +418,44 @@ function layoutInstancesRandom(list) {
   if (!n) return;
 
   const margin = Math.max(24, W * LAYOUT.marginPct);
-  for (let i = 0; i < n; i++) {
-    const x = margin + Math.random() * (W - 2 * margin);
+  const usableWidth = Math.max(1, W - 2 * margin);
+
+  // Wir teilen die Breite in n "Slots" auf und mischen die Reihenfolge,
+  // damit die Shapes nicht linear sortiert aussehen.
+  const indices = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  for (let slot = 0; slot < n; slot++) {
+    const instIndex = indices[slot];
+    const body = list[instIndex].body;
+
+    const slotWidth = usableWidth / n;
+
+    // Basis: Mittelpunkt dieses Slots
+    let x = margin + slotWidth * (slot + 0.5);
+
+    // leichter Jitter innerhalb des eigenen Slots (max 40% des Slot-Bereichs)
+    const jitter = (Math.random() - 0.5) * slotWidth * 0.4;
+    x += jitter;
+
+    // Y genau wie vorher
     const y = -100 - Math.random() * 150;
 
-    Body.setPosition(list[i].body, { x, y });
-    Body.setVelocity(list[i].body, {
+    Body.setPosition(body, { x, y });
+    Body.setVelocity(body, {
       x: (Math.random() - 0.5) * LAYOUT.kickLinear,
       y: 0
     });
     Body.setAngularVelocity(
-      list[i].body,
+      body,
       (Math.random() - 0.5) * LAYOUT.kickAngular
     );
   }
 }
+
 
 layoutInstancesRandom(instances);
 
