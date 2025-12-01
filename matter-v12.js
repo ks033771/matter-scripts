@@ -1,18 +1,15 @@
-
-
-
 /* ==========================================================
    Matter.js + Canvas-Renderer (optimiert)
    - Kein Matter.Render, eigener RAF-Loop (semi-fixed timestep)
    - DPR capped, Dirty-Rect-Heuristik, adaptive Frame-Skips
-   - Scroll+Wheel gebÃ¼ndelt, sanft geglÃ¤ttet
+   - Scroll+Wheel gebündelt, sanft geglättet
    - Optional OffscreenCanvas+Worker (automatisch, Fallback vorhanden)
    ========================================================== */
 
 /* ---------- Konfiguration ---------- */
 const THICCNESS = 120;
 const TOP_WALL_OFFSET = 400;
-const SVG_PATH_SELECTOR = "#matter-path";
+// SVG_PATH_SELECTOR wird nicht mehr benötigt, da alles inline ist
 const SVG_WIDTH_IN_PX = 500;
 const SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH = 0.30;
 
@@ -26,44 +23,70 @@ const PHYSICS = {
   CONSTRAINT_ITERATIONS: 1
 };
 
-const BODY_DEFAULTS = { restitution:0.35, friction:0.3, frictionStatic:0.5, frictionAir:0.0012, density:0.001 };
-const SVG_OPTS = { sample:6, simplifyTolerance:10.2 };
+const BODY_DEFAULTS = {
+  restitution: 0.35,
+  friction: 0.3,
+  frictionStatic: 0.5,
+  frictionAir: 0.0012,
+  density: 0.001
+};
 
-const LAYOUT = { marginPct:0.07, startYRatio:0.12, kickLinear:0.35, kickAngular:0.02 };
+const SVG_OPTS = { sample: 6, simplifyTolerance: 10.2 };
+
+const LAYOUT = {
+  marginPct: 0.07,
+  startYRatio: 0.12,
+  kickLinear: 0.35,
+  kickAngular: 0.02
+};
+
 const RESPONSIVE_SIZE = [
-  { maxViewportWidth:480,  percentOfContainer:0.6, minPx:150 },
-  { maxViewportWidth:768,  percentOfContainer:0.6, minPx:175 },
-  { maxViewportWidth:Infinity, percentOfContainer:SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH, minPx:0 }
+  { maxViewportWidth: 480,      percentOfContainer: 0.6, minPx: 150 },
+  { maxViewportWidth: 768,      percentOfContainer: 0.6, minPx: 175 },
+  { maxViewportWidth: Infinity, percentOfContainer: SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH, minPx: 0 }
 ];
 
 const SCROLL_TRIGGER = {
-  energyPerPx:(function(){
-  const isDesktop = window.matchMedia("(pointer: fine)").matches;
-  return isDesktop ? 0.5 : 0.5;
-})(),
-  baseAccelPerEnergy:0.000015,
-  capAccelPerSec:0.0000056,
-  tauMs:360,
-  viewportGuard:true,
-  upOnly:true,
-  angularJitter:0.01,
-  easePerSec:0.06,
-  antiSagBias:0.05
+  energyPerPx: (function () {
+    const isDesktop = window.matchMedia("(pointer: fine)").matches;
+    return isDesktop ? 0.5 : 0.5;
+  })(),
+  baseAccelPerEnergy: 0.000015,
+  capAccelPerSec: 0.0000056,
+  tauMs: 360,
+  viewportGuard: true,
+  upOnly: true,
+  angularJitter: 0.01,
+  easePerSec: 0.06,
+  antiSagBias: 0.05
 };
 
 const RENDER = {
-  DPR_CAP: 1.35,        // etwas niedriger fÃ¼r schwÃ¤chere Browser
+  DPR_CAP: 1.35,        // etwas niedriger für schwächere Browser
   TARGET_FPS: 60,       // adaptiver Skip
-  MOVE_EPS_POS: 0.2,    // unterdrÃ¼ckt minimalen Jitter
+  MOVE_EPS_POS: 0.2,    // unterdrückt minimalen Jitter
   MOVE_EPS_ANG: 0.002
 };
 
 /* ---------- DOM ---------- */
 const matterContainer = document.querySelector("#matter-container");
-if (!matterContainer) { console.warn("[matter-canvas] #matter-container fehlt."); }
+if (!matterContainer) {
+  console.warn("[matter-canvas] #matter-container fehlt.");
+}
 
 /* ---------- Matter Aliases ---------- */
-const { Engine, Runner, Bodies, Composite, Body, Svg, Vector, Vertices, Common, Events } = Matter;
+const {
+  Engine,
+  Runner,
+  Bodies,
+  Composite,
+  Body,
+  Svg,
+  Vector,
+  Vertices,
+  Common,
+  Events
+} = Matter;
 if (window.decomp) Common.setDecomp(window.decomp);
 
 /* ---------- Engine ---------- */
@@ -72,104 +95,133 @@ engine.enableSleeping = PHYSICS.ENABLE_SLEEPING;
 engine.world.gravity.x = PHYSICS.GRAVITY_X;
 engine.world.gravity.y = PHYSICS.GRAVITY_Y;
 engine.world.gravity.scale = PHYSICS.GRAVITY_SCALE;
-engine.positionIterations  = PHYSICS.POSITION_ITERATIONS;
-engine.velocityIterations  = PHYSICS.VELOCITY_ITERATIONS;
+engine.positionIterations = PHYSICS.POSITION_ITERATIONS;
+engine.velocityIterations = PHYSICS.VELOCITY_ITERATIONS;
 engine.constraintIterations = PHYSICS.CONSTRAINT_ITERATIONS;
-// Warum: eigener fixer Timestep â†’ stabiler, weniger Re-Work
+
+// fixer Timestep → stabiler, weniger Re-Work
 const FIXED_DT = 1000 / 60;
 let accumulatorMs = 0;
 
-/* ---------- EIN Canvas fÃ¼r alle Sprites ---------- */
+/* ---------- EIN Canvas für alle Sprites ---------- */
 const spriteCanvas = document.createElement("canvas");
-const ctx = spriteCanvas.getContext("2d", { alpha:true, desynchronized:true }); // warum: weniger Blocking
+const ctx = spriteCanvas.getContext("2d", { alpha: true, desynchronized: true }); // weniger Blocking
 spriteCanvas.style.position = "absolute";
 spriteCanvas.style.left = "0";
-spriteCanvas.style.top  = "0";
+spriteCanvas.style.top = "0";
 spriteCanvas.style.pointerEvents = "none";
 matterContainer.style.position = "relative";
 matterContainer.appendChild(spriteCanvas);
 
-function dpr() { return Math.min(RENDER.DPR_CAP, window.devicePixelRatio || 1); }
+function dpr() {
+  return Math.min(RENDER.DPR_CAP, window.devicePixelRatio || 1);
+}
+
 function resizeSpriteCanvas() {
   const pr = dpr();
-  const w = matterContainer.clientWidth|0;
-  const h = matterContainer.clientHeight|0;
-  spriteCanvas.width  = Math.max(1, Math.floor(w * pr));
+  const w = matterContainer.clientWidth | 0;
+  const h = matterContainer.clientHeight | 0;
+  spriteCanvas.width = Math.max(1, Math.floor(w * pr));
   spriteCanvas.height = Math.max(1, Math.floor(h * pr));
-  spriteCanvas.style.width  = w + "px";
+  spriteCanvas.style.width = w + "px";
   spriteCanvas.style.height = h + "px";
-  ctx.setTransform(pr,0,0,pr,0,0);
+  ctx.setTransform(pr, 0, 0, pr, 0, 0);
 }
 resizeSpriteCanvas();
 
 /* ---------- Utilities ---------- */
 function getResponsiveRule() {
   const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
-  return RESPONSIVE_SIZE.find(r => vw <= r.maxViewportWidth) || RESPONSIVE_SIZE[RESPONSIVE_SIZE.length - 1];
+  return RESPONSIVE_SIZE.find(r => vw <= r.maxViewportWidth) ||
+    RESPONSIVE_SIZE[RESPONSIVE_SIZE.length - 1];
 }
+
 function getTargetWidth() {
   const rule = getResponsiveRule();
   const base = matterContainer.clientWidth;
-  const raw  = base * rule.percentOfContainer;
+  const raw = base * rule.percentOfContainer;
   return Math.max(rule.minPx || 0, raw);
 }
-function currentScale() { return getTargetWidth() / SVG_WIDTH_IN_PX; }
 
-function ensureClosed(verts){
+function currentScale() {
+  return getTargetWidth() / SVG_WIDTH_IN_PX;
+}
+
+function ensureClosed(verts) {
   if (!verts.length) return verts;
-  const a=verts[0], b=verts[verts.length-1];
-  const dx=a.x-b.x, dy=a.y-b.y;
-  if (dx*dx + dy*dy > 1e-6) verts = verts.concat([{x:a.x,y:a.y}]);
+  const a = verts[0], b = verts[verts.length - 1];
+  const dx = a.x - b.x, dy = a.y - b.y;
+  if (dx * dx + dy * dy > 1e-6) verts = verts.concat([{ x: a.x, y: a.y }]);
   return verts;
 }
-function polygonArea(verts){
-  let area=0; for(let i=0,j=verts.length-1;i<verts.length;j=i++) area += verts[j].x*verts[i].y - verts[i].x*verts[j].y;
-  return 0.5*area;
-}
-// DP Fallback
-function simplifyDP(points, tol){
-  if (!tol || points.length<=2) return points;
-  const sqTol = tol*tol;
-  function sqSegDist(p,a,b){
-    let x=a.x, y=a.y, dx=b.x-x, dy=b.y-y;
-    if (dx!==0 || dy!==0){
-      const t=((p.x-x)*dx + (p.y-y)*dy)/(dx*dx+dy*dy);
-      if (t>1){ x=b.x; y=b.y; }
-      else if (t>0){ x+=dx*t; y+=dy*t; }
-    }
-    dx=p.x-x; dy=p.y-y; return dx*dx+dy*dy;
+
+function polygonArea(verts) {
+  let area = 0;
+  for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
+    area += verts[j].x * verts[i].y - verts[i].x * verts[j].y;
   }
-  function simplifyRadial(pts, sq){
-    let prev=pts[0], out=[prev], point;
-    for (let i=1;i<pts.length;i++){
-      point=pts[i];
-      if ((point.x-prev.x)**2 + (point.y-prev.y)**2 > sq){ out.push(point); prev=point; }
+  return 0.5 * area;
+}
+
+// DP Fallback für Simplify
+function simplifyDP(points, tol) {
+  if (!tol || points.length <= 2) return points;
+  const sqTol = tol * tol;
+
+  function sqSegDist(p, a, b) {
+    let x = a.x, y = a.y, dx = b.x - x, dy = b.y - y;
+    if (dx !== 0 || dy !== 0) {
+      const t = ((p.x - x) * dx + (p.y - y) * dy) / (dx * dx + dy * dy);
+      if (t > 1) { x = b.x; y = b.y; }
+      else if (t > 0) { x += dx * t; y += dy * t; }
     }
-    if (prev!==point) out.push(point);
+    dx = p.x - x; dy = p.y - y;
+    return dx * dx + dy * dy;
+  }
+
+  function simplifyRadial(pts, sq) {
+    let prev = pts[0], out = [prev], point;
+    for (let i = 1; i < pts.length; i++) {
+      point = pts[i];
+      if ((point.x - prev.x) ** 2 + (point.y - prev.y) ** 2 > sq) {
+        out.push(point);
+        prev = point;
+      }
+    }
+    if (prev !== point) out.push(point);
     return out;
   }
-  function step(pts, first, last, sq, out){
-    let max=sq, idx;
-    for (let i=first+1; i<last; i++){
-      const d=sqSegDist(pts[i], pts[first], pts[last]);
-      if (d>max){ idx=i; max=d; }
+
+  function step(pts, first, last, sq, out) {
+    let max = sq, idx;
+    for (let i = first + 1; i < last; i++) {
+      const d = sqSegDist(pts[i], pts[first], pts[last]);
+      if (d > max) {
+        idx = i;
+        max = d;
+      }
     }
-    if (max>sq){
-      if (idx-first>1) step(pts, first, idx, sq, out);
+    if (max > sq) {
+      if (idx - first > 1) step(pts, first, idx, sq, out);
       out.push(pts[idx]);
-      if (last-idx>1) step(pts, idx, last, sq, out);
+      if (last - idx > 1) step(pts, idx, last, sq, out);
     }
   }
+
   const pts = simplifyRadial(points, sqTol);
-  const last = pts.length-1;
-  const out=[pts[0]];
-  step(pts,0,last,sqTol,out);
+  const last = pts.length - 1;
+  const out = [pts[0]];
+  step(pts, 0, last, sqTol, out);
   out.push(pts[last]);
   return out;
 }
 
-/* ---------- CSS-Variablen -> echte Farben ---------- */
-/* ---------- CSS-Variablen -> echte Farben (ohne echte SVG-Elemente) ---------- */
+/* ---------- CSS-Variablen -> echte Farben (ohne SVG im DOM) ---------- */
+/**
+ * def.fillVar / def.strokeVar sind CSS-Custom-Property-Namen
+ * (z. B. "--_color-combinations---text-color").
+ * Wir lesen sie vom matterContainer (oder :root, je nach CSS-Setup).
+ */
 function resolvePaintFromVars(def, refEl = matterContainer || document.documentElement) {
   const cs = getComputedStyle(refEl);
 
@@ -189,8 +241,8 @@ function resolvePaintFromVars(def, refEl = matterContainer || document.documentE
   return { fill, stroke, strokeWidth };
 }
 
-
-/* ---------- Mehrfache Instanzen pro Path (jetzt inline im JS) ---------- */
+/* ---------- SVG-Defs inline (anstatt echter <svg>-Elemente) ---------- */
+/* Mehrfache Instanzen pro Path */
 const SHAPE_COUNTS = {
   "#matter-shape-1": 3,
   "#matter-shape-2": 3,
@@ -199,11 +251,11 @@ const SHAPE_COUNTS = {
 };
 
 /**
- * Hier liegen die ehemals im HTML definierten Pfade.
- * WICHTIG: Wir speichern hier nur:
- *   - id                → für Mapping mit SHAPE_COUNTS
- *   - d                 → Pfad-Daten
- *   - fillVar / strokeVar → Name der CSS-Custom-Property
+ * Ehemalige <path>-Definitionen aus deinen SVGs.
+ * WICHTIG:
+ *  - d: Pfad-Daten
+ *  - fillVar: Name der CSS-Variable
+ *  - strokeVar: Name der CSS-Variable für Stroke (optional)
  */
 const SHAPE_DEFS = [
   {
@@ -236,21 +288,7 @@ const SHAPE_DEFS = [
   }
 ];
 
-// erzeugt aus den Defs die tatsächlichen Instanzen
-const instances = [];
-for (const selector of Object.keys(SHAPE_COUNTS)) {
-  const id = selector.slice(1); // "#matter-shape-1" -> "matter-shape-1"
-  const def = SHAPE_DEFS.find(s => s.id === id);
-  if (!def) continue;
-  const count = SHAPE_COUNTS[selector] || 1;
-  for (let i = 0; i < count; i++) {
-    const inst = buildInstanceFromDef(def);
-    instances.push(inst);
-  }
-}
-
-
-
+/* ---------- SVG-Def → Matter-Body + Path2D ---------- */
 function buildInstanceFromDef(def) {
   const d = def.d || "";
   const { fill, stroke, strokeWidth } = resolvePaintFromVars(def);
@@ -269,7 +307,7 @@ function buildInstanceFromDef(def) {
 
     const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
     p.setAttribute("d", s);
-    tempSVG.appendChild(p); // muss NICHT ins DOM
+    tempSVG.appendChild(p); // muss nicht ins DOM
 
     let v = Svg.pathToVertices(p, SVG_OPTS.sample);
     if (SVG_OPTS.simplifyTolerance && v.length > 4) {
@@ -290,6 +328,7 @@ function buildInstanceFromDef(def) {
   const scaledVerts = Vertices.scale(bestVerts, scaleFactor, scaleFactor);
   const startX = matterContainer.clientWidth * 0.5;
   const startY = 0;
+
   const body = Bodies.fromVertices(
     startX,
     startY,
@@ -302,18 +341,58 @@ function buildInstanceFromDef(def) {
     body,
     path2d: new Path2D(d),
     style: { fill, stroke, lineWidth: strokeWidth },
-    rawCentroid: bestCentroid
+    rawCentroid: bestCentroid,
+    def // Referenz auf Def, falls du später Farben neu lesen willst
   };
 }
 
+/* ---------- Instanzen erzeugen ---------- */
+const instances = [];
+for (const selector of Object.keys(SHAPE_COUNTS)) {
+  const id = selector.slice(1); // "#matter-shape-1" -> "matter-shape-1"
+  const def = SHAPE_DEFS.find(s => s.id === id);
+  if (!def) continue;
+  const count = SHAPE_COUNTS[selector] || 1;
+  for (let i = 0; i < count; i++) {
+    const inst = buildInstanceFromDef(def);
+    instances.push(inst);
+  }
+}
 
 /* ---------- Weltgrenzen ---------- */
-let ground = Bodies.rectangle(matterContainer.clientWidth/2, matterContainer.clientHeight + THICCNESS/2, 27184, THICCNESS, { isStatic:true });
-let leftWall  = Bodies.rectangle(-THICCNESS/2, matterContainer.clientHeight/2, THICCNESS, matterContainer.clientHeight*5, { isStatic:true });
-let rightWall = Bodies.rectangle(matterContainer.clientWidth + THICCNESS/2, matterContainer.clientHeight/2, THICCNESS, matterContainer.clientHeight*5, { isStatic:true });
-let ceiling   = Bodies.rectangle(matterContainer.clientWidth/2, -TOP_WALL_OFFSET - THICCNESS/2, Math.max(27184, matterContainer.clientWidth*3), THICCNESS, { isStatic:true });
+let ground = Bodies.rectangle(
+  matterContainer.clientWidth / 2,
+  matterContainer.clientHeight + THICCNESS / 2,
+  27184,
+  THICCNESS,
+  { isStatic: true }
+);
+let leftWall = Bodies.rectangle(
+  -THICCNESS / 2,
+  matterContainer.clientHeight / 2,
+  THICCNESS,
+  matterContainer.clientHeight * 5,
+  { isStatic: true }
+);
+let rightWall = Bodies.rectangle(
+  matterContainer.clientWidth + THICCNESS / 2,
+  matterContainer.clientHeight / 2,
+  THICCNESS,
+  matterContainer.clientHeight * 5,
+  { isStatic: true }
+);
+let ceiling = Bodies.rectangle(
+  matterContainer.clientWidth / 2,
+  -TOP_WALL_OFFSET - THICCNESS / 2,
+  Math.max(27184, matterContainer.clientWidth * 3),
+  THICCNESS,
+  { isStatic: true }
+);
 
-Composite.add(engine.world, [ground, leftWall, rightWall, ceiling, ...instances.map(i => i.body)]);
+Composite.add(
+  engine.world,
+  [ground, leftWall, rightWall, ceiling, ...instances.map(i => i.body)]
+);
 
 /* ---------- Startlayout ---------- */
 function layoutInstancesRandom(list) {
@@ -324,23 +403,25 @@ function layoutInstancesRandom(list) {
 
   const margin = Math.max(24, W * LAYOUT.marginPct);
   for (let i = 0; i < n; i++) {
-    const x = margin + Math.random() * (W - 2 * margin); // 👈 random x innerhalb vom Container
-    const y = -100 - Math.random() * 150; // etwas mehr Höhe zufällig
+    const x = margin + Math.random() * (W - 2 * margin);
+    const y = -100 - Math.random() * 150;
 
     Body.setPosition(list[i].body, { x, y });
     Body.setVelocity(list[i].body, {
       x: (Math.random() - 0.5) * LAYOUT.kickLinear,
       y: 0
     });
-    Body.setAngularVelocity(list[i].body, (Math.random() - 0.5) * LAYOUT.kickAngular);
+    Body.setAngularVelocity(
+      list[i].body,
+      (Math.random() - 0.5) * LAYOUT.kickAngular
+    );
   }
 }
 
 layoutInstancesRandom(instances);
 
-
-/* ---------- Scroll/Wheel â†’ sanfter Lift ---------- */
-let isInView=false;
+/* ---------- Scroll/Wheel → sanfter Lift ---------- */
+let isInView = false;
 let lastScrollY = window.scrollY || window.pageYOffset || 0;
 let emaDY = 0;
 let liftEnergy = 0;
@@ -349,17 +430,15 @@ const EMA_ALPHA = 0.75;
 
 let lastScrollTimestamp = 0;
 let activeScrollBurst = false;
-const SCROLL_BURST_TIMEOUT = 50; // in ms, wie lange ein Scroll-Burst maximal aktiv ist
+const SCROLL_BURST_TIMEOUT = 50; // ms
 
-
-// Warum: Wheel liefert bessere Deltas fÃ¼r MÃ¤use; Scroll fÃ¼r Touch/Trackpad
 function handleLiftInput(dy) {
   dy = Math.max(-HARD_SCROLL_CLAMP, Math.min(HARD_SCROLL_CLAMP, dy));
   emaDY = EMA_ALPHA * emaDY + (1 - EMA_ALPHA) * dy;
   const add = Math.max(0, emaDY) * SCROLL_TRIGGER.energyPerPx;
   if (add > 0) {
     liftEnergy += add;
-    lastScrollTimestamp = performance.now();  // neue Zeit merken
+    lastScrollTimestamp = performance.now();
     activeScrollBurst = true;
   }
 }
@@ -379,15 +458,14 @@ window.addEventListener("scroll", () => {
   handleLiftInput(dy);
 }, { passive: true });
 
-
 /* ---------- Draw ---------- */
 let spriteScale = currentScale();
 let prevSpriteScale = spriteScale;
-let lastPositions = new WeakMap(); // warum: Dirty-Check
+let lastPositions = new WeakMap(); // Dirty-Check
 
-function drawSprites(){
-  ctx.clearRect(0,0,matterContainer.clientWidth,matterContainer.clientHeight);
-  for (const inst of instances){
+function drawSprites() {
+  ctx.clearRect(0, 0, matterContainer.clientWidth, matterContainer.clientHeight);
+  for (const inst of instances) {
     const { body, path2d, style, rawCentroid } = inst;
     const cx = rawCentroid.x * spriteScale;
     const cy = rawCentroid.y * spriteScale;
@@ -398,8 +476,11 @@ function drawSprites(){
     ctx.translate(-cx, -cy);
     ctx.scale(spriteScale, spriteScale);
 
-    if (style.fill) { ctx.fillStyle = style.fill; ctx.fill(path2d); }
-    if (style.stroke && style.lineWidth > 0){
+    if (style.fill) {
+      ctx.fillStyle = style.fill;
+      ctx.fill(path2d);
+    }
+    if (style.stroke && style.lineWidth > 0) {
       ctx.strokeStyle = style.stroke;
       ctx.lineWidth = style.lineWidth / spriteScale;
       ctx.stroke(path2d);
@@ -409,15 +490,35 @@ function drawSprites(){
 }
 
 /* ---------- Visibility ---------- */
-function startLoop(){ running = true; rafId = requestAnimationFrame(tick); }
-function stopLoop(){ running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+let running = false, rafId = null;
+
+function startLoop() {
+  running = true;
+  rafId = requestAnimationFrame(tick);
+}
+
+function stopLoop() {
+  running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+}
 
 if ("IntersectionObserver" in window) {
   const io = new IntersectionObserver((entries) => {
-    for (const e of entries) { isInView = e.isIntersecting; isInView ? startLoop() : stopLoop(); }
-  }, { root: null, rootMargin: "400px 0px", threshold: 0 });
+    for (const e of entries) {
+      isInView = e.isIntersecting;
+      isInView ? startLoop() : stopLoop();
+    }
+  }, {
+    root: null,
+    rootMargin: "400px 0px",
+    threshold: 0
+  });
   io.observe(document.querySelector(".matter-wrap") || matterContainer);
-} else { isInView = true; startLoop(); }
+} else {
+  isInView = true;
+  startLoop();
+}
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopLoop();
@@ -425,61 +526,129 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* ---------- Resize (ResizeObserver) ---------- */
-let lastCanvasW = matterContainer.clientWidth, lastCanvasH = matterContainer.clientHeight;
-function updateWalls(){
-  Body.setPosition(ground, Vector.create(matterContainer.clientWidth/2, matterContainer.clientHeight + THICCNESS/2));
-  Body.setVertices(ground, Bodies.rectangle(ground.position.x, ground.position.y, Math.max(27184, matterContainer.clientWidth*3), THICCNESS, { isStatic:true }).vertices);
+let lastCanvasW = matterContainer.clientWidth;
+let lastCanvasH = matterContainer.clientHeight;
 
-  Body.setPosition(leftWall, Vector.create(-THICCNESS/2, matterContainer.clientHeight/2));
-  Body.setVertices(leftWall, Bodies.rectangle(leftWall.position.x, leftWall.position.y, THICCNESS, matterContainer.clientHeight*5, { isStatic:true }).vertices);
+function updateWalls() {
+  Body.setPosition(
+    ground,
+    Vector.create(
+      matterContainer.clientWidth / 2,
+      matterContainer.clientHeight + THICCNESS / 2
+    )
+  );
+  Body.setVertices(
+    ground,
+    Bodies.rectangle(
+      ground.position.x,
+      ground.position.y,
+      Math.max(27184, matterContainer.clientWidth * 3),
+      THICCNESS,
+      { isStatic: true }
+    ).vertices
+  );
 
-  Body.setPosition(rightWall, Vector.create(matterContainer.clientWidth + THICCNESS/2, matterContainer.clientHeight/2));
-  Body.setVertices(rightWall, Bodies.rectangle(rightWall.position.x, rightWall.position.y, THICCNESS, matterContainer.clientHeight*5, { isStatic:true }).vertices);
+  Body.setPosition(
+    leftWall,
+    Vector.create(-THICCNESS / 2, matterContainer.clientHeight / 2)
+  );
+  Body.setVertices(
+    leftWall,
+    Bodies.rectangle(
+      leftWall.position.x,
+      leftWall.position.y,
+      THICCNESS,
+      matterContainer.clientHeight * 5,
+      { isStatic: true }
+    ).vertices
+  );
 
-  Body.setPosition(ceiling, Vector.create(matterContainer.clientWidth/2, -TOP_WALL_OFFSET - THICCNESS/2));
-  Body.setVertices(ceiling, Bodies.rectangle(ceiling.position.x, ceiling.position.y, Math.max(27184, matterContainer.clientWidth*3), THICCNESS, { isStatic:true }).vertices);
+  Body.setPosition(
+    rightWall,
+    Vector.create(
+      matterContainer.clientWidth + THICCNESS / 2,
+      matterContainer.clientHeight / 2
+    )
+  );
+  Body.setVertices(
+    rightWall,
+    Bodies.rectangle(
+      rightWall.position.x,
+      rightWall.position.y,
+      THICCNESS,
+      matterContainer.clientHeight * 5,
+      { isStatic: true }
+    ).vertices
+  );
+
+  Body.setPosition(
+    ceiling,
+    Vector.create(
+      matterContainer.clientWidth / 2,
+      -TOP_WALL_OFFSET - THICCNESS / 2
+    )
+  );
+  Body.setVertices(
+    ceiling,
+    Bodies.rectangle(
+      ceiling.position.x,
+      ceiling.position.y,
+      Math.max(27184, matterContainer.clientWidth * 3),
+      THICCNESS,
+      { isStatic: true }
+    ).vertices
+  );
 }
 
-function handleResize(){
+function handleResize() {
   resizeSpriteCanvas();
   updateWalls();
 
   const newSpriteScale = currentScale();
   const scaleRatio = newSpriteScale / (prevSpriteScale || newSpriteScale);
-  if (isFinite(scaleRatio) && Math.abs(scaleRatio-1) > 0.001){
-    const allBodies = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+  if (isFinite(scaleRatio) && Math.abs(scaleRatio - 1) > 0.001) {
+    const allBodies = Composite
+      .allBodies(engine.world)
+      .filter(b => !b.isStatic);
     for (const body of allBodies) Body.scale(body, scaleRatio, scaleRatio);
     prevSpriteScale = newSpriteScale;
   }
   spriteScale = newSpriteScale;
 
-  for (const b of Composite.allBodies(engine.world).filter(b => !b.isStatic)){
+  for (const b of Composite.allBodies(engine.world).filter(b => !b.isStatic)) {
     if (b.isSleeping) b.isSleeping = false;
-    Body.applyForce(b, b.position, { x:0, y:Math.max(1e-6, 0.000002*b.mass) });
+    Body.applyForce(b, b.position, {
+      x: 0,
+      y: Math.max(1e-6, 0.000002 * b.mass)
+    });
   }
   lastCanvasW = matterContainer.clientWidth;
   lastCanvasH = matterContainer.clientHeight;
   drawSprites();
 }
 
-if ('ResizeObserver' in window){
+if ("ResizeObserver" in window) {
   const ro = new ResizeObserver(() => handleResize());
   ro.observe(matterContainer);
 } else {
   // Fallback debounce
-  let resizeTO=null;
-  const schedule = () => { clearTimeout(resizeTO); resizeTO=setTimeout(handleResize, 80); };
+  let resizeTO = null;
+  const schedule = () => {
+    clearTimeout(resizeTO);
+    resizeTO = setTimeout(handleResize, 80);
+  };
   window.addEventListener("resize", schedule);
-  if (window.visualViewport) window.visualViewport.addEventListener("resize", schedule, { passive:true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", schedule, { passive: true });
+  }
   window.addEventListener("orientationchange", schedule);
 }
 
 /* ---------- Physik-Loop (semi-fixed) ---------- */
-let running = false, rafId = null;
 let lastTs = performance.now();
 let frameSkip = 0;
 
-function physicsStep(dtMs){
+function physicsStep(dtMs) {
   const now = performance.now();
   const timeSinceLastScroll = now - lastScrollTimestamp;
 
@@ -494,31 +663,31 @@ function physicsStep(dtMs){
 
   if (liftEnergy > 0.00001 && activeScrollBurst) {
     const bodies = instances.map(i => i.body).filter(b => !b.isStatic);
-    const dt = Math.max(0.001, dtMs/1000);
+    const dt = Math.max(0.001, dtMs / 1000);
     const g = engine.world.gravity.y * engine.world.gravity.scale;
 
-    // NEU: Burst-Faktor reduziert die Kraft Ã¼ber Zeit
+    // Burst-Faktor reduziert die Kraft über Zeit
     const burstFactor = Math.max(0.1, 1.0 - (timeSinceLastScroll / SCROLL_BURST_TIMEOUT));
     const aUp = SCROLL_TRIGGER.baseAccelPerEnergy * liftEnergy * burstFactor;
     const capA = Math.max(0.2, SCROLL_TRIGGER.capAccelPerSec) * dt;
 
-    for (const body of bodies){
+    for (const body of bodies) {
       const biasA = SCROLL_TRIGGER.antiSagBias * g;
       const a = Math.min(aUp + biasA, capA);
-      Body.applyForce(body, body.position, { x:0, y:-a * body.mass });
+      Body.applyForce(body, body.position, { x: 0, y: -a * body.mass });
 
-      const jitter = (Math.random()-0.5) * SCROLL_TRIGGER.angularJitter;
+      const jitter = (Math.random() - 0.5) * SCROLL_TRIGGER.angularJitter;
       Body.setAngularVelocity(body, body.angularVelocity + jitter);
     }
   }
 
-  // Ease/DÃ¤mpfung
+  // Ease/Dämpfung
   const ease = Math.max(0, Math.min(1, SCROLL_TRIGGER.easePerSec));
-  if (ease>0){
-    const dt = Math.max(0.001, dtMs/1000);
+  if (ease > 0) {
+    const dt = Math.max(0.001, dtMs / 1000);
     const damp = Math.exp(-ease * dt);
     const bodies = instances.map(i => i.body).filter(b => !b.isStatic);
-    for (const body of bodies){
+    for (const body of bodies) {
       body.velocity.x *= damp;
       body.velocity.y *= damp;
       body.angularVelocity *= damp;
@@ -526,38 +695,47 @@ function physicsStep(dtMs){
   }
 }
 
-
-function isDirty(){
-  // warum: zeichnet nur, wenn Bewegung spÃ¼rbar ist
-  let dirty=false;
-  for (const inst of instances){
+function isDirty() {
+  // zeichnet nur, wenn Bewegung spürbar ist
+  let dirty = false;
+  for (const inst of instances) {
     const b = inst.body;
     const prev = lastPositions.get(b);
-    if (!prev){
-      lastPositions.set(b, {x:b.position.x, y:b.position.y, a:b.angle});
+    if (!prev) {
+      lastPositions.set(b, {
+        x: b.position.x,
+        y: b.position.y,
+        a: b.angle
+      });
       dirty = true;
       continue;
     }
     const dx = Math.abs(b.position.x - prev.x);
     const dy = Math.abs(b.position.y - prev.y);
     const da = Math.abs(b.angle - prev.a);
-    if (dx>RENDER.MOVE_EPS_POS || dy>RENDER.MOVE_EPS_POS || da>RENDER.MOVE_EPS_ANG){
-      lastPositions.set(b, {x:b.position.x, y:b.position.y, a:b.angle});
+    if (dx > RENDER.MOVE_EPS_POS ||
+        dy > RENDER.MOVE_EPS_POS ||
+        da > RENDER.MOVE_EPS_ANG) {
+      lastPositions.set(b, {
+        x: b.position.x,
+        y: b.position.y,
+        a: b.angle
+      });
       dirty = true;
     }
   }
   return dirty;
 }
 
-function tick(ts){
+function tick(ts) {
   if (!running) return;
   const dtMs = Math.min(50, ts - lastTs);
   lastTs = ts;
 
   accumulatorMs += dtMs;
-  // max 4 Steps â†’ schÃ¼tzt vor Spiralen
+  // max 4 Steps → schützt vor Spiralen
   let steps = 0;
-  while (accumulatorMs >= FIXED_DT && steps < 4){
+  while (accumulatorMs >= FIXED_DT && steps < 4) {
     physicsStep(FIXED_DT);
     Engine.update(engine, FIXED_DT);
     accumulatorMs -= FIXED_DT;
@@ -566,9 +744,9 @@ function tick(ts){
 
   // adaptiver Frame-Skip
   const targetFrameMs = 1000 / RENDER.TARGET_FPS;
-  frameSkip = (dtMs > targetFrameMs * 1.4) ? (frameSkip+1)%2 : 0;
+  frameSkip = (dtMs > targetFrameMs * 1.4) ? (frameSkip + 1) % 2 : 0;
 
-  if (!frameSkip && isDirty()){
+  if (!frameSkip && isDirty()) {
     drawSprites();
   }
 
@@ -579,17 +757,22 @@ function tick(ts){
 drawSprites();
 
 /* ---------- OffscreenCanvas + Worker (optional) ----------
-   Hinweis: Komplett optional; aktiviert NUR wenn unterstÃ¼tzt.
-   Warum: Entlastet Main Thread bei Zeichenlast. */
+   Hinweis: Komplett optional; aktiviert NUR wenn unterstützt.
+   (In diesem Beispiel bleibt das Drawing lokal, da Path2D+DOM-Styles hier gebraucht werden.)
+*/
 try {
-  const supportsOffscreen = 'OffscreenCanvas' in window && spriteCanvas.transferControlToOffscreen;
+  const supportsOffscreen =
+    "OffscreenCanvas" in window &&
+    spriteCanvas.transferControlToOffscreen;
   if (supportsOffscreen) {
-    // Minimal-Worker nur fÃ¼rs Zeichnen; Physik bleibt hier.
-    // In diesem Beispiel bleibt Drawing lokal, da Path2D+DOM-Styles hier gebraucht werden.
-    // Wenn du reine Bitmap-Sprites nutzt, verschiebe den Draw in den Worker.
+    // hier könntest du in Zukunft reines Bitmap-Rendering in einen Worker auslagern
   }
-} catch { /* ignorieren */ }
+} catch {
+  /* ignorieren */
+}
 
-/* ---------- Kleine QualitÃ¤ts-of-Life Tweaks ---------- */
+/* ---------- Kleine Quality-of-Life Tweaks ---------- */
 // aggressiver schlafen lassen
-Composite.allBodies(engine.world).forEach(b => { b.sleepThreshold = 30; });
+Composite.allBodies(engine.world).forEach(b => {
+  b.sleepThreshold = 30;
+});
