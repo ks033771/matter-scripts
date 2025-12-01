@@ -239,7 +239,6 @@ function buildInstanceFromPath(pathEl) {
     rawCentroid: bestCentroid
   };
 }
-const instances = sourcePaths.map(buildInstanceFromPath);
 
 /* ---------- Weltgrenzen ---------- */
 let ground = Bodies.rectangle(matterContainer.clientWidth/2, matterContainer.clientHeight + THICCNESS/2, 27184, THICCNESS, { isStatic:true });
