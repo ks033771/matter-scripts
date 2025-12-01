@@ -17,8 +17,8 @@ const PHYSICS = {
   GRAVITY_Y: 1.0,
   GRAVITY_SCALE: 0.00125,
   ENABLE_SLEEPING: true,
-  POSITION_ITERATIONS: 4,   // weniger = schneller
-  VELOCITY_ITERATIONS: 4,
+  POSITION_ITERATIONS: 3,   // weniger = schneller
+  VELOCITY_ITERATIONS: 3,
   CONSTRAINT_ITERATIONS: 1
 };
 
@@ -30,7 +30,7 @@ const BODY_DEFAULTS = {
   density: 0.001
 };
 
-const SVG_OPTS = { sample: 6, simplifyTolerance: 10.2 };
+const SVG_OPTS = { sample: 10, simplifyTolerance: 25 };
 
 const LAYOUT = {
   marginPct: 0.07,
