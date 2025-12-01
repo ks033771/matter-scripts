@@ -322,11 +322,18 @@ function prepareShape(def) {
     }
   }
 
-  def._verts = bestVerts;
-  def._centroid = bestCentroid;
+  // aus bestVerts eine konvexe Hülle machen, um Selbst-Schnitte loszuwerden
+  let hullVerts = bestVerts;
+  if (hullVerts && hullVerts.length > 3 && Vertices.hull) {
+    hullVerts = Vertices.hull(hullVerts);
+  }
+
+  def._verts = hullVerts;
+  def._centroid = Vertices.centre(hullVerts);
   def._path2d = new Path2D(d);
   def._prepared = true;
   return def;
+
 }
 
 /* ---------- aus vorbereitetem Def → einzelne Instanz ---------- */
