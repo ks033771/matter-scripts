@@ -243,10 +243,10 @@ function resolvePaintFromVars(def, refEl = matterContainer || document.documentE
 /* ---------- SVG-Defs inline (anstatt echter <svg>-Elemente) ---------- */
 /* Mehrfache Instanzen pro Path */
 const SHAPE_COUNTS = {
-  "#matter-shape-1": 7,
-  "#matter-shape-2": 7,
-  "#matter-shape-3": 7,
-  "#matter-shape-4": 7
+  "#matter-shape-1": 6,
+  "#matter-shape-2": 6,
+  "#matter-shape-3": 6,
+  "#matter-shape-4": 6
 };
 
 /**
