@@ -182,10 +182,10 @@ function resolvePaint(pathEl) {
 /* ---------- SVG -> Body + Path2D ---------- */
 /* ---------- Mehrfache Instanzen pro Path ---------- */
 const SHAPE_COUNTS = {
-  "#matter-shape-1": 4,
+  "#matter-shape-1": 3,
   "#matter-shape-2": 3,
   "#matter-shape-3": 2,
-  "#matter-shape-4": 5
+  "#matter-shape-4": 3
 };
 
 const sourcePaths = Object.keys(SHAPE_COUNTS)
