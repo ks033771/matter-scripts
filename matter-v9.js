@@ -249,19 +249,28 @@ let ceiling   = Bodies.rectangle(matterContainer.clientWidth/2, -TOP_WALL_OFFSET
 Composite.add(engine.world, [ground, leftWall, rightWall, ceiling, ...instances.map(i => i.body)]);
 
 /* ---------- Startlayout ---------- */
-function layoutInstancesEvenly(list) {
-  const W = matterContainer.clientWidth, H = matterContainer.clientHeight, n = list.length;
+function layoutInstancesRandom(list) {
+  const W = matterContainer.clientWidth;
+  const H = matterContainer.clientHeight;
+  const n = list.length;
   if (!n) return;
+
   const margin = Math.max(24, W * LAYOUT.marginPct);
-  for (let i=0;i<n;i++){
-    const x = margin + ((W - 2*margin) * (i + 0.5)) / n;
-        const y = -40 - (Math.random() * 40); // Start 200â€“400px Ã¼ber dem Viewport
+  for (let i = 0; i < n; i++) {
+    const x = margin + Math.random() * (W - 2 * margin); // 👈 random x innerhalb vom Container
+    const y = -100 - Math.random() * 150; // etwas mehr Höhe zufällig
+
     Body.setPosition(list[i].body, { x, y });
-    Body.setVelocity(list[i].body, { x:(Math.random()-0.5)*LAYOUT.kickLinear, y:0 });
-    Body.setAngularVelocity(list[i].body, (Math.random()-0.5)*LAYOUT.kickAngular);
+    Body.setVelocity(list[i].body, {
+      x: (Math.random() - 0.5) * LAYOUT.kickLinear,
+      y: 0
+    });
+    Body.setAngularVelocity(list[i].body, (Math.random() - 0.5) * LAYOUT.kickAngular);
   }
 }
-layoutInstancesEvenly(instances);
+
+layoutInstancesRandom(instances);
+
 
 /* ---------- Scroll/Wheel â†’ sanfter Lift ---------- */
 let isInView=false;
