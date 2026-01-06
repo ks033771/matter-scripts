@@ -40,8 +40,8 @@ const LAYOUT = {
 
 const RESPONSIVE_SIZE = [
   { maxViewportWidth: 480,      percentOfContainer: 0.6, minPx: 150 },
-  { maxViewportWidth: 990,      percentOfContainer: 0.6, minPx: 200 },
-  { maxViewportWidth: Infinity, percentOfContainer: SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH, minPx: 0}
+  { maxViewportWidth: 990,      percentOfContainer: 0.6, minPx: 175 },
+  { maxViewportWidth: Infinity, percentOfContainer: SVG_WIDTH_AS_PERCENT_OF_CONTAINER_WIDTH, minPx: 185}
 ];
 
 const SCROLL_TRIGGER = {
